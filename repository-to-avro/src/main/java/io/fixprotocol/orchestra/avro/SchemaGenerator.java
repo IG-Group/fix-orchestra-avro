@@ -24,10 +24,8 @@ import java.io.InputStream;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
@@ -74,7 +72,6 @@ public class SchemaGenerator {
 	protected static final String FIELD_DIR = "field";
 	
 	private boolean isGenerateStringForDecimal = true;
-	private boolean isExcludeSession = false;
 	private boolean isAppendRepoFixVersionToNamespace = true;
 	private String namespace = null;
 	
@@ -89,7 +86,6 @@ public class SchemaGenerator {
 		new CommandLine(options).execute(args);
 		try (FileInputStream inputStream = new FileInputStream(new File(options.orchestraFileName))) {
 			generator.setGenerateStringForDecimal(!options.isGenerateStringForDecimal);
-			generator.setExcludeSession(options.isExcludeSession);
             generator.generate(inputStream, new File(options.outputDir));
             generator.setNamespace(options.namespace);
             generator.setAppendRepoFixVersionToNamespace(options.isAppendRepoFixVersionToNamespace);
@@ -121,10 +117,6 @@ public class SchemaGenerator {
 		@Option(names = { "--append-repo-fix-version-to-namespace" }, defaultValue = "true", fallbackValue = "true", 
 				paramLabel = "APPEND_REPO_FIX_VERSION_TO_NAMESPACE", description = "Append the FIX version specified in the repository to the namespace, Default : ${DEFAULT-VALUE}")
 		boolean isAppendRepoFixVersionToNamespace = true;
-		
-		@Option(names = { EXCLUDE_SESSION }, defaultValue = "false", fallbackValue = "true", 
-				paramLabel = "EXCLUDE_SESSION", description ="Excludes Session Category Messages, Components and Groups exclusive to Session Layer and Fields used by Session Layer from the generated code, Default : ${DEFAULT-VALUE}")
-		boolean isExcludeSession = false;
 	}
 
 	private String decimalTypeString = STRING_TYPE;
@@ -157,8 +149,6 @@ public class SchemaGenerator {
 			Map<Integer, ComponentType> components = new HashMap<>();
 			Map<Integer, FieldType> fields = new HashMap<>();
 			Map<Integer, GroupType> groups = new HashMap<>();
-			Set<BigInteger> sessionFieldIds = new HashSet<BigInteger>();
-			Set<BigInteger> nonSessionFieldIds = new HashSet<BigInteger>();
 			
 			initialise(inputFile);
 
@@ -179,19 +169,6 @@ public class SchemaGenerator {
 			for (final GroupType group : groupList) {
 				groups.put(group.getId().intValue(), group);
 			}
-			// create new maps of groups so that we can keep original groups map unaltered 
-			Map<Integer, GroupType> nonSessionGroups = new HashMap<Integer, GroupType>();
-			Map<Integer, GroupType> sessionGroups = new HashMap<Integer, GroupType>();
-			// derive set of session messages
-			List<MessageType> sessionMessages = excludeSessionMessages(messages);
-			//collect groups and field ids from the non-session messages
-			collectGroupsAndFields(messages, nonSessionFieldIds, groups, nonSessionGroups, components, fields, false);
-			//collect groups and field ids from the session messages
-			collectGroupsAndFields(sessionMessages, sessionFieldIds, groups, sessionGroups, components, fields, true);
-			//restrict nonSessionFieldIds, removing fields that are used in session messages 
-			//if option is selected for separate package of session messages and fields, the fields will be provided by the session package and not duplicated
-			nonSessionFieldIds.removeAll(sessionFieldIds);
-			
 			repository.getCodeSets().getCodeSet().forEach(codeSet -> {codeSets.put(codeSet.getName(), codeSet);});
 			
 			final File typeDir = SchemaGeneratorUtil.getAvroPath(outputDir, namespace, CODE_SET_DIR);
@@ -213,26 +190,14 @@ public class SchemaGenerator {
 			}
 			
 			for (final FieldType fieldType : fieldList) {
-				BigInteger id = fieldType.getId();				
-				if (isExcludeSession) {
-					if (nonSessionFieldIds.contains(id)) {
-						generateField(fieldType, this.namespace, typeDir, fieldDir, codeSets, this.decimalTypeString);
-					}
-				} else {
-					generateField(fieldType, this.namespace, typeDir, fieldDir, codeSets, this.decimalTypeString);
-				}
+				generateField(fieldType, this.namespace, typeDir, fieldDir, codeSets, this.decimalTypeString);
 			}
 
-			for (final GroupType group : nonSessionGroups.values()) {
-				generateGroup(groupDir, group, this.namespace, nonSessionGroups, components, fields, codeSets);
+			for (final GroupType group : groups.values()) {
+				generateGroup(groupDir, group, this.namespace, groups, components, fields, codeSets);
 			}
-			if (!isExcludeSession) { // process groups that are used by session messages
-				for (final GroupType group : sessionGroups.values()) {
-					generateGroup(groupDir, group, this.namespace, sessionGroups, components, fields, codeSets);
-				}
-			}
-//			// at time of writing Session Messages do not contain components (only groups),
-//			// so there is no logic to segregate session components
+			// at time of writing Session Messages do not contain components (only groups),
+			// so there is no logic to segregate session components
 			for (final ComponentType component : componentList) {
 				int id = component.getId().intValue();
 				if (id != COMPONENT_ID_STANDARD_HEADER && id != COMPONENT_ID_STANDARD_TRAILER) {
@@ -240,31 +205,11 @@ public class SchemaGenerator {
 				}
 			}
 			generateMessages(messageDir, messages, namespace, this.decimalTypeString, groups, components, fields, codeSets);
-			if (!isExcludeSession) {
-				generateMessages(messageDir, sessionMessages, namespace, this.decimalTypeString, groups, components, fields, codeSets);
-			}
 		} catch (JAXBException | IOException e) {
 			e.printStackTrace();
 		}
 	}
 
-
-
-	/**
-	 * Excludes Session messages
-	 * @param messageList 
-	 * @return the MessageTypes that have been excluded
-	 */
-	private static List<MessageType> excludeSessionMessages(List<MessageType> messageList) {
-		List<MessageType> excludedMessages = new ArrayList<MessageType>(); 
-		for (final MessageType message : messageList) {
-			if (message.getCategory().equals("Session")) {
-				excludedMessages.add(message);
-			}
-		}
-		messageList.removeAll(excludedMessages);
-		return excludedMessages;
-	}
 
 	private static void generateMessages(File outputDir, 
 			                             final List<MessageType> messages, 
@@ -312,54 +257,6 @@ public class SchemaGenerator {
 			writer.write(SchemaGeneratorUtil.indent(1));
 			writer.write("]\n");
 			SchemaGeneratorUtil.writeCloseBracket(writer);
-		}
-	}
-
-	private static void collectGroupsAndFields(List<MessageType> messageList, Set<BigInteger> includedFieldIds, 
-			                    Map<Integer, GroupType> groups, 
-			                    Map<Integer, GroupType> collectedGroups, 
-			                    Map<Integer, ComponentType> components, 
-			                    Map<Integer, FieldType> fields,
-                                boolean isParseHeaderAndTrailer) throws IOException {
-		for (final MessageType messageType : messageList) {
-			final List<Object> members = messageType.getStructure().getComponentRefOrGroupRefOrFieldRef();
-			collectGroupsAndFieldsFromMembers(members, includedFieldIds, groups, collectedGroups, components, fields, isParseHeaderAndTrailer);
-		}
-	}
-
-	private static void collectGroupsAndFieldsFromMembers(List<Object> members, Set<BigInteger> includedFieldIds, 
-			                                      Map<Integer, GroupType> groups, 
-			                                      Map<Integer, GroupType> collectedGroups, 
-			                                      Map<Integer, ComponentType> components, 
-			                                      Map<Integer, FieldType> fields,
-			                                      boolean isParseHeaderAndTrailer) throws IOException {
-		for (final Object member : members) {
-			if (member instanceof FieldRefType) {
-				final FieldRefType fieldRefType = (FieldRefType) member;
-				includedFieldIds.add(fieldRefType.getId());
-			} else if (member instanceof GroupRefType) {
-				final int id = ((GroupRefType) member).getId().intValue();
-				final GroupType groupType = groups.get(id);
-				if (groupType != null) {
-					collectedGroups.put(groupType.getId().intValue(), groupType);
-					final int numInGroupId = groupType.getNumInGroup().getId().intValue();
-					final FieldType numInGroupField = fields.get(numInGroupId);
-					includedFieldIds.add(numInGroupField.getId());
-					collectGroupsAndFieldsFromMembers(groupType.getComponentRefOrGroupRefOrFieldRef(),includedFieldIds, groups, collectedGroups, components, fields, isParseHeaderAndTrailer);
-				} else {
-					System.err.format("collectFieldIdsFromMembers : Group missing from repository; id=%d%n", id);
-				}
-			} else if (member instanceof ComponentRefType) {
-				final int id = ((ComponentRefType) member).getId().intValue();
-				final ComponentType componentType = components.get(id);
-				if (null != componentType) {
-					if ((id != COMPONENT_ID_STANDARD_HEADER && id != COMPONENT_ID_STANDARD_TRAILER) || isParseHeaderAndTrailer) {
-						collectGroupsAndFieldsFromMembers(componentType.getComponentRefOrGroupRefOrFieldRef(),includedFieldIds, groups, collectedGroups, components, fields, isParseHeaderAndTrailer);
-					}
-				} else {
-					System.err.format("Component missing from repository; id=%d%n", id);
-				}
-			}
 		}
 	}
 
@@ -667,14 +564,6 @@ public class SchemaGenerator {
 
 	public boolean isGenerateStringForDecimal() {
 		return this.isGenerateStringForDecimal;
-	}
-
-	public boolean isExcludeSession() {
-		return isExcludeSession;
-	}
-
-	public void setExcludeSession(boolean isExcludeSession) {
-		this.isExcludeSession = isExcludeSession;
 	}
 
 	public String getNamespace() {
