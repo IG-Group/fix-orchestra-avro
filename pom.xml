@@ -33,6 +33,7 @@
 	<modules>
 		<module>repository-to-avro</module>
 		<module>repository-to-avro-maven-plugin</module>
+		<module>repository-to-avro-example</module>
 	</modules>
 
 	<properties>
@@ -78,10 +79,16 @@
 		<commons.io.version>2.11.0</commons.io.version>
 		<guava.version>31.0.1-jre</guava.version>
 		<orchestra.file>OrchestraFIXLatest.xml</orchestra.file>
+		<avro.version>1.11.0</avro.version>
 	</properties>
 
 	<dependencyManagement>
 		<dependencies>
+			<dependency>
+			  <groupId>org.apache.avro</groupId>
+			  <artifactId>avro</artifactId>
+			  <version>${avro.version}</version>
+			</dependency>
 			<dependency>
 				<groupId>io.fixprotocol.orchestrations</groupId>
 				<artifactId>fix-standard</artifactId>
@@ -177,6 +184,11 @@
 	<build>
 		<pluginManagement>
 			<plugins>
+				<plugin>
+					  <groupId>org.apache.avro</groupId>
+					  <artifactId>avro-maven-plugin</artifactId>
+					  <version>${avro.version}</version>
+				</plugin>					
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-deploy-plugin</artifactId>

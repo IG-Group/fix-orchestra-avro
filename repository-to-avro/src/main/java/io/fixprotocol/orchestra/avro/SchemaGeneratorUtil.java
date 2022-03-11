@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 import io.fixprotocol._2020.orchestra.repository.Documentation;
 import io.fixprotocol._2020.orchestra.repository.FieldRefType;
 import io.fixprotocol._2020.orchestra.repository.FieldType;
+import io.fixprotocol._2020.orchestra.repository.PresenceT;
 
 public class SchemaGeneratorUtil {
 
@@ -47,8 +48,13 @@ public class SchemaGeneratorUtil {
 		result.append(indent(indent));
 		result.append("{");
 		result.append(SchemaGeneratorUtil.getJsonNameValue("name", name, true));
-		result.append(SchemaGeneratorUtil.getJsonNameValue("type", type, true));
-	
+		if (fieldRefType.getPresence().equals(PresenceT.REQUIRED)) {
+			result.append(SchemaGeneratorUtil.getJsonNameValue("type", type, true));
+		} else {
+			StringBuffer optionalFieldTypeString = new StringBuffer("[\"null\", \"").append(type).append("\"]");
+			result.append("\"type\": ").append(optionalFieldTypeString.toString()).append(",");
+			result.append(" \"default\": null,");
+		}
 		List<Object> members = fieldRefType.getAnnotation().getDocumentationOrAppinfo();
 		List<String> docs = new ArrayList<>();
 		getDocumentationStrings(members, docs);
@@ -65,7 +71,7 @@ public class SchemaGeneratorUtil {
 		for (Object member : members) {
 			if (member instanceof Documentation) {
 				((Documentation) member).getContent().forEach(d -> {
-					docs.add(d.toString().trim());
+					docs.add(d.toString().replace("\n", " ").replace("\"", "\\\"").trim());
 				});
 			}
 		}
@@ -114,7 +120,7 @@ public class SchemaGeneratorUtil {
 		return writer;
 	}
 
-	static Writer writeFieldArrayStart(FileWriter writer) throws IOException {
+	static Writer writeFieldArrayStart(Writer writer) throws IOException {
 		writer.write(indent(1));
 		writer.write("\"fields\": [\n");
 		writer.write(indent(2));
@@ -122,7 +128,7 @@ public class SchemaGeneratorUtil {
 		return writer;
 	}
 
-	static Writer writeFieldArrayEnd(FileWriter writer) throws IOException {
+	static Writer writeFieldArrayEnd(Writer writer) throws IOException {
 		writer.write(indent(2));
 		writer.write("}\n");
 		writer.write(indent(1));
@@ -130,7 +136,7 @@ public class SchemaGeneratorUtil {
 		return writer;
 	}
 
-	static Writer writeEnumDef(FileWriter writer) throws IOException {
+	static Writer writeEnumDef(Writer writer) throws IOException {
 		writeJsonNameValue(writer, indent(1), "type", "enum");
 		writer.write("\n");
 		writer.write(indent(1));
@@ -138,7 +144,7 @@ public class SchemaGeneratorUtil {
 		return writer;
 	}
 
-	static Writer writeEndEnumDef(FileWriter writer, String name, String unknown) throws IOException {
+	static Writer writeEndEnumDef(Writer writer, String name, String unknown) throws IOException {
 		writer.write(indent(1));
 		writer.write("],\n");
 		writer.write(indent(1));

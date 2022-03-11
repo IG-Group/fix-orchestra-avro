@@ -2,7 +2,6 @@ package io.fixprotocol.orchestra.avro;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import org.apache.maven.plugin.AbstractMojo;
@@ -11,9 +10,7 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
-import io.fixprotocol.orchestra.avro.SchemaGenerator;
-
-@Mojo(name = "codeGeneration", defaultPhase = LifecyclePhase.PROCESS_SOURCES)
+@Mojo(name = "schemaGeneration", defaultPhase = LifecyclePhase.GENERATE_SOURCES)
 public class SchemaGeneratorMojo extends AbstractMojo {
 
 	/**
@@ -23,28 +20,29 @@ public class SchemaGeneratorMojo extends AbstractMojo {
 	protected File orchestration;
 
 	/**
-	 * Output Location for generated sources
+	 * Output Location for generated schema
 	 */
 	@Parameter(defaultValue = "${project.build.directory}/generated-sources", property = "outputDirectory", required = true)
 	protected File outputDirectory;
 	
 	/**
-	 * Determines if FIX Decimal types will be generated using BigDecimal
+	 * Determines if FIX Decimal types will be generated using string rather than double
 	 */
-	@Parameter(property = "generateBigDecimal", required = false)
-	protected boolean generateBigDecimal = false;
+	@Parameter(property = "generateStringForDecimal", required = false)
+	protected boolean generateStringForDecimal = false;
+	
+	/**
+	 * Defines the namespace for the generated schema
+	 */
+	@Parameter(property = "namespace", required = true)
+	String namespace;
 
 	/**
-	 * Determines if FIX Session Layer is generated in FIXT11 package
+	 * Defines if the FIX version from the repository file will be appended to the provided namespace
 	 */
-	@Parameter(property = "generateFixt11Package", required = false)
-	boolean  generateFixt11Package  = true;
+	@Parameter(property = "appendRepoFixVersionToNamespace", required = false)
+	boolean appendRepoFixVersionToNamespace = true;
 
-	/**
-	 * Determines if FIX Session Layer is excluded from Code Generation
-	 */
-	@Parameter(property = "excludeSession", required = false)
-	boolean excludeSession = false;
 	
 	public void execute() throws MojoExecutionException {
         if ( orchestration.exists() && orchestration.isFile() ) {
@@ -64,8 +62,10 @@ public class SchemaGeneratorMojo extends AbstractMojo {
 		this.getLog().info(new StringBuilder("Output Directory : ").append(outputDirectory.getAbsolutePath()).toString());
 
 		final SchemaGenerator generator = new SchemaGenerator();
-		generator.setGenerateStringForDecimal(generateBigDecimal);
-
+		generator.setGenerateStringForDecimal(generateStringForDecimal);
+		generator.setNamespace(namespace);
+		generator.setAppendRepoFixVersionToNamespace(appendRepoFixVersionToNamespace);
+		
 	    try (FileInputStream inputFile = new FileInputStream(orchestration)) {
 			generator.generate(inputFile, outputDirectory);
 		} catch (IOException e) {

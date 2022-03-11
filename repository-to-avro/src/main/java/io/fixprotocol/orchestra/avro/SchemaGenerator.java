@@ -14,14 +14,19 @@
  */
 package io.fixprotocol.orchestra.avro;
 
+import static io.fixprotocol.orchestra.avro.SchemaGeneratorUtil.getJsonNameValue;
 import static io.fixprotocol.orchestra.avro.SchemaGeneratorUtil.indent;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Writer;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -36,12 +41,12 @@ import io.fixprotocol._2020.orchestra.repository.CodeSetType;
 import io.fixprotocol._2020.orchestra.repository.CodeType;
 import io.fixprotocol._2020.orchestra.repository.ComponentRefType;
 import io.fixprotocol._2020.orchestra.repository.ComponentType;
-import io.fixprotocol._2020.orchestra.repository.Documentation;
 import io.fixprotocol._2020.orchestra.repository.FieldRefType;
 import io.fixprotocol._2020.orchestra.repository.FieldType;
 import io.fixprotocol._2020.orchestra.repository.GroupRefType;
 import io.fixprotocol._2020.orchestra.repository.GroupType;
 import io.fixprotocol._2020.orchestra.repository.MessageType;
+import io.fixprotocol._2020.orchestra.repository.PresenceT;
 import io.fixprotocol._2020.orchestra.repository.Repository;
 import io.fixprotocol._2020.orchestra.repository.SectionType;
 import picocli.CommandLine;
@@ -58,19 +63,19 @@ public class SchemaGenerator {
 
 	static final int SPACES_PER_LEVEL = 2;
 	
-	private static final int COMPONENT_ID_STANDARD_TRAILER = 1025;
-	private static final int COMPONENT_ID_STANDARD_HEADER = 1024;
-	
 	private static final String DOUBLE_TYPE = "double";
 	private static final String STRING_TYPE = "string";
 	
-	private static final String CODE_SET_DIR = "codeset";
-	private static final String COMPONENT_DIR = "component";
-	private static final String MESSAGE_DIR = "message";
-	private static final String GROUP_DIR = "group";
+	private static final String CODE_SET_DIR = "codesets";
+	private static final String COMPONENT_DIR = "components";
+	private static final String MESSAGE_DIR = "messages";
+	private static final String GROUP_DIR = "groups";
 
-	protected static final String FIELD_DIR = "field";
-	
+	protected static final String FIELD_DIR = "fields";
+
+	private static boolean isNormaliseComponent = false;
+	private static boolean isNormaliseGroup = false;
+
 	private boolean isGenerateStringForDecimal = true;
 	private boolean isAppendRepoFixVersionToNamespace = true;
 	private String namespace = null;
@@ -173,12 +178,8 @@ public class SchemaGenerator {
 			
 			final File typeDir = SchemaGeneratorUtil.getAvroPath(outputDir, namespace, CODE_SET_DIR);
 			typeDir.mkdirs();
-			final File fieldDir = SchemaGeneratorUtil.getAvroPath(outputDir, namespace, FIELD_DIR);
-			fieldDir.mkdirs();
-			final File componentDir = SchemaGeneratorUtil.getAvroPath(outputDir, namespace, COMPONENT_DIR);
-			componentDir.mkdirs();
-			final File groupDir = SchemaGeneratorUtil.getAvroPath(outputDir, namespace, GROUP_DIR);
-			groupDir.mkdirs();
+//			final File fieldDir = SchemaGeneratorUtil.getAvroPath(outputDir, namespace, FIELD_DIR);
+//			fieldDir.mkdirs();
 			final File messageDir = SchemaGeneratorUtil.getAvroPath(outputDir, namespace, MESSAGE_DIR);
 			messageDir.mkdirs();
 			
@@ -189,18 +190,23 @@ public class SchemaGenerator {
 				generateCodeSet(namespace, decimalTypeString, name, codeSet, fixType, codeSetFile);
 			}
 			
-			for (final FieldType fieldType : fieldList) {
-				generateField(fieldType, this.namespace, typeDir, fieldDir, codeSets, this.decimalTypeString);
-			}
+//			for (final FieldType fieldType : fieldList) {
+//				generateField(fieldType, this.namespace, typeDir, fieldDir, codeSets, this.decimalTypeString);
+//			}
 
-			for (final GroupType group : groups.values()) {
-				generateGroup(groupDir, group, this.namespace, groups, components, fields, codeSets);
+			if (isNormaliseGroup) {
+				final File groupDir = SchemaGeneratorUtil.getAvroPath(outputDir, namespace, GROUP_DIR);
+				groupDir.mkdirs();
+				for (final GroupType group : groups.values()) {
+					generateGroup(groupDir, group, this.namespace, groups, components, fields, codeSets);
+				}
 			}
 			// at time of writing Session Messages do not contain components (only groups),
 			// so there is no logic to segregate session components
-			for (final ComponentType component : componentList) {
-				int id = component.getId().intValue();
-				if (id != COMPONENT_ID_STANDARD_HEADER && id != COMPONENT_ID_STANDARD_TRAILER) {
+			if (isNormaliseComponent) {
+				final File componentDir = SchemaGeneratorUtil.getAvroPath(outputDir, namespace, COMPONENT_DIR);
+				componentDir.mkdirs();
+				for (final ComponentType component : componentList) {
 					generateComponent(componentDir, component, this.namespace, this.decimalTypeString, groups, components, fields, codeSets);
 				}
 			}
@@ -229,7 +235,8 @@ public class SchemaGenerator {
 		final String name = SchemaGeneratorUtil.toTitleCase(message.getName());
 		
 		final File messageFile = getFilePath(messageDir, name);
-		try (FileWriter writer = new FileWriter(messageFile)) {
+		
+		try (Writer writer = new OutputStreamWriter(new FileOutputStream(messageFile), StandardCharsets.UTF_8)) {
 			SchemaGeneratorUtil.writeOpenBracket(writer);
 			SchemaGeneratorUtil.writeName(writer, name, 1);
 			SchemaGeneratorUtil.writeNameSpace(writer, namespace, MESSAGE_DIR);
@@ -238,13 +245,8 @@ public class SchemaGenerator {
 
 			List<Object> docMembers = message.getAnnotation().getDocumentationOrAppinfo();
 			List<String> docs = new ArrayList<>();
-			for (Object member : docMembers) {
-				if (member instanceof Documentation) {
-					((Documentation) member).getContent().forEach(d -> {
-						docs.add(d.toString().trim());
-					});
-				}
-			}
+			SchemaGeneratorUtil.getDocumentationStrings(docMembers, docs);
+
 			SchemaGeneratorUtil.writeJsonNameValue(writer, indent(1), "doc", String.join(",", docs).trim());	
 			writer.write("\n");
 			
@@ -252,8 +254,10 @@ public class SchemaGenerator {
 			writer.write("\"fields\": [\n");
 
 			final List<Object> members = message.getStructure().getComponentRefOrGroupRefOrFieldRef();
-			writeMembersInline(writer, members, namespace, decimalTypeString, groups, components, fields, codeSets, 2);
-			
+			List<String> memberStrings = new ArrayList<>();
+			getMembersInline(members, namespace, decimalTypeString, groups, components, fields, codeSets, 1, memberStrings);
+			writer.write(String.join(",\n", memberStrings));
+			writer.write("\n");
 			writer.write(SchemaGeneratorUtil.indent(1));
 			writer.write("]\n");
 			SchemaGeneratorUtil.writeCloseBracket(writer);
@@ -271,7 +275,7 @@ public class SchemaGenerator {
 		final String name = SchemaGeneratorUtil.toTitleCase(componentType.getName());
 		
 		final File componentFile = getFilePath(componentDir, name);
-		try (FileWriter writer = new FileWriter(componentFile)) {
+		try (Writer writer = new OutputStreamWriter(new FileOutputStream(componentFile), StandardCharsets.UTF_8)) {
 			SchemaGeneratorUtil.writeOpenBracket(writer);
 			SchemaGeneratorUtil.writeName(writer, name, 1);
 			SchemaGeneratorUtil.writeNameSpace(writer, namespace, COMPONENT_DIR);
@@ -280,13 +284,8 @@ public class SchemaGenerator {
 
 			List<Object> docMembers = componentType.getAnnotation().getDocumentationOrAppinfo();
 			List<String> docs = new ArrayList<>();
-			for (Object member : docMembers) {
-				if (member instanceof Documentation) {
-					((Documentation) member).getContent().forEach(d -> {
-						docs.add(d.toString().trim());
-					});
-				}
-			}
+			SchemaGeneratorUtil.getDocumentationStrings(docMembers, docs);
+
 			SchemaGeneratorUtil.writeJsonNameValue(writer, indent(1), "doc", String.join(",", docs).trim());	
 			writer.write("\n");
 			
@@ -294,38 +293,41 @@ public class SchemaGenerator {
 			writer.write("\"fields\": [\n");
 
 			final List<Object> members = componentType.getComponentRefOrGroupRefOrFieldRef();
-			writeMembersInline(writer, members, namespace, decimalTypeString, groups, components, fields, codeSets, 2);
-			
+			List<String> memberStrings = new ArrayList<>();
+			getMembersInline(members, namespace, decimalTypeString, groups, components, fields, codeSets, 1, memberStrings);
+			writer.write(String.join(",\n", memberStrings));
+			writer.write("\n");
 			writer.write(SchemaGeneratorUtil.indent(1));
 			writer.write("]\n");
 			SchemaGeneratorUtil.writeCloseBracket(writer);
 		}
 	}
-
-	private static void writeMembersInline(FileWriter writer, 
-									  List<Object> members, 
+	
+	private static void getMembersInline(List<Object> members, 
 									  String namespace,
 									  String decimalTypeString,
 									  Map<Integer, GroupType> groups, 
 									  Map<Integer, ComponentType> components, 
 									  Map<Integer, FieldType> fields,
 									  Map<String, CodeSetType> codeSets,
-									  int indent) throws IOException {
-		List<String> memberStrings = new ArrayList<>();
+									  int indent,
+									  List<String> memberStrings) throws IOException {
 		for (final Object member : members) {
 			if (member instanceof FieldRefType) {
 				final FieldRefType fieldRefType = (FieldRefType) member;
 				int id = fieldRefType.getId().intValue();
 				final FieldType fieldType = fields.get(id);
 				if (fieldType != null) {
+					int fieldIndent = indent + 1;
 					final String fieldTypeType = SchemaGeneratorUtil.toTitleCase(fieldType.getType());
 					final CodeSetType codeSet = codeSets.get(fieldTypeType);
+					String fieldName = fieldType.getName();
 					if (null == codeSet) {
 						final String avroType = getFieldAvroType(fieldTypeType, decimalTypeString);
-						memberStrings.add(SchemaGeneratorUtil.getFieldInlineString(fieldRefType, fieldType, fieldTypeType, avroType, indent));
+						memberStrings.add(SchemaGeneratorUtil.getFieldInlineString(fieldRefType, fieldType, fieldName, avroType, fieldIndent));
 					} else {
 						final String generatedType = namespace.concat(".").concat(CODE_SET_DIR).concat(".").concat(codeSet.getName());
-						memberStrings.add(SchemaGeneratorUtil.getFieldInlineString(fieldRefType, fieldType, fieldTypeType, generatedType, indent));
+						memberStrings.add(SchemaGeneratorUtil.getFieldInlineString(fieldRefType, fieldType, fieldName, generatedType, fieldIndent));
 					}
 				} else {
 					System.err.format("writeMembersInline : Field missing from repository; id=%d%n", id);
@@ -335,9 +337,71 @@ public class SchemaGenerator {
 				final int id = groupRefType.getId().intValue();
 				final GroupType groupType = groups.get(id);
 				if (groupType != null) {
+					int groupIndent = indent + 1;
 					final String groupTypeName = SchemaGeneratorUtil.toTitleCase(groupType.getName());
-					final String generatedType = namespace.concat(".").concat(GROUP_DIR).concat(".").concat(groupTypeName);
-					memberStrings.add(getGroupInlineString(groupRefType, groupType, groupTypeName, generatedType));
+					if (isNormaliseGroup) {
+						final String generatedType = namespace.concat(".").concat(GROUP_DIR).concat(".").concat(groupTypeName);
+						memberStrings.add(getGroupInlineString(groupRefType, groupType, groupTypeName, generatedType));
+					} else {
+						StringBuffer groupString = new StringBuffer();
+						groupString.append(indent(groupIndent));
+						groupString.append("{\n");
+						groupString.append(indent(++groupIndent)).append(getJsonNameValue("name", groupTypeName, true));
+						groupString.append("\n");
+						groupString.append(indent(groupIndent));
+						if (!groupRefType.getPresence().equals(PresenceT.REQUIRED)) {
+							groupString.append("\"type\": [\n");
+							++groupIndent;
+							groupString.append(indent(groupIndent)).append("\"null\", \n");
+							groupString.append(indent(groupIndent)).append("{\n");
+							++groupIndent;
+						} else {
+							groupString.append("\"type\": {\n");
+							++groupIndent;
+						}
+						groupString.append(indent(groupIndent)).append(getJsonNameValue("type", "array", true));
+						groupString.append("\n");
+						groupString.append(indent(groupIndent));
+						groupString.append("\"items\": ");
+						groupString.append("{\n");
+
+						groupString.append(indent(++groupIndent)).append(getJsonNameValue("name", groupTypeName.concat("Item"), true));
+						groupString.append("\n");
+						groupString.append(indent(groupIndent)).append(getJsonNameValue("type", "record", true));
+						groupString.append("\n");
+						groupString.append(indent(groupIndent));
+						groupString.append("\"fields\": [\n");
+
+						final List<Object> componentMembers = groupType.getComponentRefOrGroupRefOrFieldRef();
+						List<String> groupMemberStrings = new ArrayList<>();
+						getMembersInline(
+								componentMembers,
+								namespace, 
+								decimalTypeString, 
+								groups,
+								components, 
+								fields, 
+								codeSets, 
+								groupIndent,
+								groupMemberStrings);
+						groupString.append(String.join(",\n", groupMemberStrings));
+						groupString.append("\n");
+						groupString.append(indent(groupIndent));
+						groupString.append("]\n");
+
+						groupString.append(indent(--groupIndent));
+						groupString.append("}\n");
+						
+						groupString.append(indent(--groupIndent));
+						groupString.append("}\n");
+						if (!groupRefType.getPresence().equals(PresenceT.REQUIRED)) {
+							groupString.append(indent(--groupIndent)).append("], \"default\": null\n");
+						}
+
+						groupString.append(indent(--groupIndent));
+						groupString.append("}");	
+						memberStrings.add(groupString.toString());
+					}
 				} else {
 					System.err.format("writeMembersInline : Group missing from repository; id=%d%n", id);
 				}
@@ -346,16 +410,28 @@ public class SchemaGenerator {
 				final int id = componentRefType.getId().intValue();
 				final ComponentType componentType = components.get(id);
 				if (componentType != null) {
-					final String componentTypeName = SchemaGeneratorUtil.toTitleCase(componentType.getName());
-					final String generatedType = namespace.concat(".").concat(COMPONENT_DIR).concat(".").concat(componentTypeName);
-					memberStrings.add(getComponentInlineString(componentRefType, componentType, componentTypeName, generatedType));
+					if (isNormaliseComponent) {
+						final String componentTypeName = SchemaGeneratorUtil.toTitleCase(componentType.getName());
+						final String generatedType = namespace.concat(".").concat(COMPONENT_DIR).concat(".").concat(componentTypeName);
+						memberStrings.add(getComponentInlineString(componentRefType, componentType, componentTypeName, generatedType));
+					} else {
+						final List<Object> componentMembers = componentType.getComponentRefOrGroupRefOrFieldRef();
+						getMembersInline(
+								componentMembers,
+								namespace, 
+								decimalTypeString, 
+								groups, 
+								components, 
+								fields, 
+								codeSets, 
+								indent,
+								memberStrings);
+					}
 				} else {
 					System.err.format("writeMembersInline : Component missing from repository; id=%d%n", id);
 				}
 			}
 		}
-		writer.write(String.join(",\n", memberStrings));
-		writer.write("\n");
 	}
 
 	private static String getComponentInlineString(ComponentRefType componentRefType, ComponentType componentType, String name, String type) {
@@ -396,25 +472,25 @@ public class SchemaGenerator {
 		return result.toString();
 	}
 
-	private static void generateField(FieldType fieldType, String namespace, File typeDir, File fieldDir,
-			Map<String, CodeSetType> codeSets, String decimalTypeString)
-			throws IOException {
-		final String name = SchemaGeneratorUtil.toTitleCase(fieldType.getName());
-		String fieldTypeName = fieldType.getType();
-		final CodeSetType codeSet = codeSets.get(fieldTypeName);
-		final File fieldFile = getFilePath(fieldDir, name);
-		if (null == codeSet) {
-			final String avroType = getFieldAvroType(fieldTypeName, decimalTypeString);
-			generateField(fieldType, namespace, decimalTypeString, name, avroType, fieldFile);
-		} else {
-			final String generatedType = namespace.concat(".").concat(CODE_SET_DIR).concat(".").concat(fieldTypeName);
-			generateField(fieldType, namespace, decimalTypeString, name, generatedType, fieldFile);
-		}
-	}
+//	private static void generateField(FieldType fieldType, String namespace, File typeDir, File fieldDir,
+//			Map<String, CodeSetType> codeSets, String decimalTypeString)
+//			throws IOException {
+//		final String name = SchemaGeneratorUtil.toTitleCase(fieldType.getName());
+//		String fieldTypeName = fieldType.getType();
+//		final CodeSetType codeSet = codeSets.get(fieldTypeName);
+//		final File fieldFile = getFilePath(fieldDir, name);
+//		if (null == codeSet) {
+//			final String avroType = getFieldAvroType(fieldTypeName, decimalTypeString);
+//			generateField(fieldType, namespace, decimalTypeString, name, avroType, fieldFile);
+//		} else {
+//			final String generatedType = namespace.concat(".").concat(CODE_SET_DIR).concat(".").concat(fieldTypeName);
+//			generateField(fieldType, namespace, decimalTypeString, name, generatedType, fieldFile);
+//		}
+//	}
 
 	private static void generateCodeSet(String namespace, String decimalTypeString, final String name,
 			final CodeSetType codeSet, final String fixType, final File typeFile) throws IOException {
-		try (FileWriter writer = new FileWriter(typeFile)) {
+		try (Writer writer = new OutputStreamWriter(new FileOutputStream(typeFile), StandardCharsets.UTF_8)) {
 			SchemaGeneratorUtil.writeOpenBracket(writer);
 			SchemaGeneratorUtil.writeName(writer, name, 1);
 			SchemaGeneratorUtil.writeNameSpace(writer, namespace, CODE_SET_DIR);
@@ -425,7 +501,7 @@ public class SchemaGenerator {
 			for (CodeType code : codes) {
 				writer.write(indent(3));
 				writer.write("\"");
-				writer.write(code.getName());
+				writer.write(SchemaGeneratorUtil.precedeCapsWithUnderscore(code.getName()));
 				writer.write("\",\n");
 			}
 			writer.write(indent(3));
@@ -437,19 +513,19 @@ public class SchemaGenerator {
 		}
 	}
 
-	private static void generateField(FieldType fieldType, String namespace, String decimalTypeString,
-			final String name, final String type, final File file) throws IOException {
-		try (FileWriter writer = new FileWriter(file)) {
-			SchemaGeneratorUtil.writeField(fieldType, namespace, name, type, writer);
-		}
-	}
+//	private static void generateField(FieldType fieldType, String namespace, String decimalTypeString,
+//			final String name, final String type, final File file) throws IOException {
+//		try (Writer writer = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8)) {
+//			SchemaGeneratorUtil.writeField(fieldType, namespace, name, type, writer);
+//		}
+//	}
 
 	private void generateGroup(File groupDir, GroupType group, String namespace,
 			Map<Integer, GroupType> groups, Map<Integer, ComponentType> components,
 			Map<Integer, FieldType> fields, Map<String, CodeSetType> codeSets) throws IOException {
 		final String name = SchemaGeneratorUtil.toTitleCase(group.getName());
 		final File file = getFilePath(groupDir, name);
-		try (FileWriter writer = new FileWriter(file)) {
+		try (Writer writer = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8)) {
 			SchemaGeneratorUtil.writeOpenBracket(writer);
 			SchemaGeneratorUtil.writeName(writer, name, 1);
 			SchemaGeneratorUtil.writeNameSpace(writer, namespace, GROUP_DIR);
@@ -458,13 +534,8 @@ public class SchemaGenerator {
 
 			List<Object> docMembers = group.getAnnotation().getDocumentationOrAppinfo();
 			List<String> docs = new ArrayList<>();
-			for (Object member : docMembers) {
-				if (member instanceof Documentation) {
-					((Documentation) member).getContent().forEach(d -> {
-						docs.add(d.toString().trim());
-					});
-				}
-			}
+			SchemaGeneratorUtil.getDocumentationStrings(docMembers, docs);
+
 			SchemaGeneratorUtil.writeJsonNameValue(writer, indent(1), "doc", String.join(",", docs).trim());	
 			writer.write("\n");
 			
@@ -485,14 +556,17 @@ public class SchemaGenerator {
 			writer.write("\"items\": ");
 			writer.write("{\n");
 			
-			SchemaGeneratorUtil.writeJsonNameValue(writer, indent(5), "name", name.concat("Entry"), true);
+			SchemaGeneratorUtil.writeJsonNameValue(writer, indent(5), "name", name.concat("Item"), true);
 			writer.write("\n");
 			SchemaGeneratorUtil.writeJsonNameValue(writer, indent(5), "type", "record");
 			writer.write("\n");
 			writer.write(indent(5));
 			writer.write("\"fields\": [\n");
 			final List<Object> members = group.getComponentRefOrGroupRefOrFieldRef();
-			writeMembersInline(writer, members, namespace, decimalTypeString, groups, components, fields, codeSets, 6);
+			List<String> memberStrings = new ArrayList<>();
+			getMembersInline(members, namespace, decimalTypeString, groups, components, fields, codeSets, 5, memberStrings);
+			writer.write(String.join(",\n", memberStrings));
+			writer.write("\n");
 			writer.write(indent(5));
 			writer.write("]\n");
 
@@ -535,7 +609,7 @@ public class SchemaGenerator {
 			avroType = "int";
 			break;
 		case "Boolean":
-			avroType = "boolean ";
+			avroType = "boolean";
 			break;
 		case "Percentage":
 			avroType = DOUBLE_TYPE;
