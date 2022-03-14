@@ -30,6 +30,18 @@ public class SchemaGeneratorMojo extends AbstractMojo {
 	 */
 	@Parameter(property = "generateStringForDecimal", required = false)
 	protected boolean generateStringForDecimal = false;
+
+	/**
+	 * Determines if Components will be normalised by writing them to separate files
+	 */
+	@Parameter(property = "normaliseComponents", required = false)
+	protected boolean normaliseComponents = false;
+
+	/**
+	 * Determines if Groups will be normalised by writing them to separate files
+	 */
+	@Parameter(property = "normaliseGroups", required = false)
+	protected boolean normaliseGroups = false;
 	
 	/**
 	 * Defines the namespace for the generated schema
@@ -65,6 +77,8 @@ public class SchemaGeneratorMojo extends AbstractMojo {
 		generator.setGenerateStringForDecimal(generateStringForDecimal);
 		generator.setNamespace(namespace);
 		generator.setAppendRepoFixVersionToNamespace(appendRepoFixVersionToNamespace);
+		generator.setNormaliseComponents(normaliseComponents);
+		generator.setNormaliseGroups(normaliseGroups);
 		
 	    try (FileInputStream inputFile = new FileInputStream(orchestration)) {
 			generator.generate(inputFile, outputDirectory);
