@@ -70,9 +70,8 @@
 		<plantuml-maven-plugin-version>1.2</plantuml-maven-plugin-version>
 		<plantuml-version>8059</plantuml-version>
 		<xml-maven-plugin-version>1.0.2</xml-maven-plugin-version>
-		<!-- TODO figure out these two versions -->
 		<fix.orchestra.version>1.5.4</fix.orchestra.version>
-		<orchestra.version>1.6.8</orchestra.version>
+		<repository.version>1.6.8</repository.version>
 		<docgen.version>1.6.8</docgen.version>
 		<jaxb.version>2.3.3</jaxb.version>
 		<apache.mina.version>2.1.5</apache.mina.version>
@@ -97,7 +96,7 @@
 			<dependency>
 				<groupId>io.fixprotocol.orchestra</groupId>
 				<artifactId>repository</artifactId>
-				<version>${orchestra.version}</version>
+				<version>${repository.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>junit</groupId>
@@ -185,10 +184,10 @@
 		<pluginManagement>
 			<plugins>
 				<plugin>
-					  <groupId>org.apache.avro</groupId>
-					  <artifactId>avro-maven-plugin</artifactId>
-					  <version>${avro.version}</version>
-				</plugin>					
+					<groupId>org.apache.avro</groupId>
+					<artifactId>avro-maven-plugin</artifactId>
+					<version>${avro.version}</version>
+				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-deploy-plugin</artifactId>
