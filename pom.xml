@@ -33,8 +33,7 @@
 	<modules>
 		<module>repository-to-avro</module>
 		<module>repository-to-avro-maven-plugin</module>
-		<module>repository-to-avro-example</module>
-		<module>repository-to-avro-example-normalised</module>
+		<module>repository-to-avro-examples</module>
 	</modules>
 
 	<properties>

@@ -12,13 +12,13 @@ Since FIX version 5.0 there has been a logical distinction between the FIX trans
 
 These challenges can be mitigated by customising the FIX Orchestration to reduce its complexity. FIX Orchestra is intended to be customised to adapt the Orchestration to the users' specific requirements and in this case to Avro. Without customisation a full FIX ExecutionReport, for example, won't compile : ``` error: code too large```.  Customisation may include the removal of fields associated with the FIX transport (Session).
 
-This Avro schema generation creates separate schemas for each FIX *Message*. It is left to the user to decide if they want to create Avro types that union these *Message* schemas.
+This Avro schema generation creates separate schemas for each FIX *Message*. Generated schemas artefacts may be used as constituents of other schemas, for example one may elect to use a union to permit a schema to contain more than one *Message" type. To allow flexibilty according to the users' requirements the repository-to-avro schema generation does not prescribe the containing/envelope schema.
 
-```repository-to-avro``` supports some options for the schema generation, please see the readme documents in the child projects for details 
+```repository-to-avro``` supports options for the schema generation, please see the readme documents in the child projects for details 
 
 At time of writing the FIX Standard Orchestration needs some changes to work with Avro code generation for Java. This is accomplished with a simple ```xslt``` transformation that can be found in the build. 
 
-Please refer to the FIX Orchestra projects for additional tools.
+```xslt```  may be used for schema customisation but please refer to the FIX Orchestra projects for additional tools.
 
 ## Modules
 
@@ -26,5 +26,6 @@ Please refer to the FIX Orchestra projects for additional tools.
 
 * repository-to-avro-maven-plugin : Faciliates FIX Orchestra repository to Avro Schema generation in [Apache Maven](https://maven.apache.org/) projects.
 
-* repository-to-avro-example : Example using the generated schema
-* repository-to-avro-example-normalised  : Example using the generated schema with normalised Components and Groups written to separate files.
+* repository-to-avro-examples : Examples using the generated schema
+    * repository-to-avro-example : Example using the generated schema
+    * repository-to-avro-example-normalised  : Example using the generated schema with normalised Components and Groups written to separate files.
