@@ -151,5 +151,16 @@ private SchemaGenerator generator;
             new File("target/spec/generated-sources/withDouble/latest"));
   }
 
+  @Test
+  public void testGenerateWithNormalise() throws IOException {
+	generator.setGenerateStringForDecimal(false);
+	generator.setNamespace(IO_FIXPROTOCOL_ORCHESTRA_AVRO_V1);
+	generator.setNormaliseComponents(true);
+	generator.setNormaliseGroups(true);
+	generator.generate(
+            Thread.currentThread().getContextClassLoader().getResource("trade-latest.xml").openStream(),
+            new File("target/spec/generated-sources/normalised/latest"));
+  }
+
 }
 

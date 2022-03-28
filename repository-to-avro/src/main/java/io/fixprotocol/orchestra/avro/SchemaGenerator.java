@@ -72,8 +72,8 @@ public class SchemaGenerator {
 
 	protected static final String FIELD_DIR = "fields";
 
-	private static boolean isNormaliseComponent = false;
-	private static boolean isNormaliseGroup = false;
+	private boolean isNormaliseComponents = false;
+	private boolean isNormaliseGroups = false;
 
 	private boolean isGenerateStringForDecimal = true;
 	private boolean isAppendRepoFixVersionToNamespace = true;
@@ -92,6 +92,8 @@ public class SchemaGenerator {
 			generator.setGenerateStringForDecimal(!options.isGenerateStringForDecimal);
             generator.generate(inputStream, new File(options.outputDir));
             generator.setNamespace(options.namespace);
+            generator.setNormaliseComponents(options.isNormaliseComponents);
+            generator.setNormaliseGroups(options.isNormaliseGroups);
             generator.setAppendRepoFixVersionToNamespace(options.isAppendRepoFixVersionToNamespace);
 		} catch (Exception e) {
 			e.printStackTrace(System.err);
@@ -107,19 +109,27 @@ public class SchemaGenerator {
 		String outputDir = "target/generated-sources";
 
 		@Option(names = { "-i", "--orchestra-file" }, required = true, 
-				paramLabel = "ORCHESTRA_FILE", description = "The path/name of the FIX OrchestraFile")
+				paramLabel = "ORCHESTRA_FILE", description = "The path/name of the FIX Orchestra file")
 		String orchestraFileName;
 
 		@Option(names = { "-n", "--namespace" }, required = true, 
 				paramLabel = "NAMESPACE", description = "The namespace for the generated schema, include version if required.")
 		String namespace;
 		
+		@Option(names = { "--normalise-groups" }, defaultValue = "false", fallbackValue = "true",
+				paramLabel = "NORMALISE-GROUPS", description = "Normalise Groups by writing the schemas to separate files.")
+		boolean isNormaliseGroups = false;
+
+		@Option(names = { "--normalise-components" }, defaultValue = "false", fallbackValue = "true",
+				paramLabel = "NORMALISE-COMPONENTS", description = "Normalise Componenents by writing the schemas to separate files.")
+		boolean isNormaliseComponents = false;
+		
 		@Option(names = { "--generate-string-for-decimal" }, defaultValue = "false", fallbackValue = "true", 
 				paramLabel = "GENERATE_STRING_FOR_DECIMAL", description = "Use String type for Decimal Fields instead of double, Default : ${DEFAULT-VALUE}")
 		boolean isGenerateStringForDecimal = true;
 		
 		@Option(names = { "--append-repo-fix-version-to-namespace" }, defaultValue = "true", fallbackValue = "true", 
-				paramLabel = "APPEND_REPO_FIX_VERSION_TO_NAMESPACE", description = "Append the FIX version specified in the repository to the namespace, Default : ${DEFAULT-VALUE}")
+				paramLabel = "APPEND_REPO_FIX_VERSION_TO_NAMESPACE", description = "Append the FIX version specified in the Orchestra repository file to the namespace, Default : ${DEFAULT-VALUE}")
 		boolean isAppendRepoFixVersionToNamespace = true;
 	}
 
@@ -193,7 +203,7 @@ public class SchemaGenerator {
 //				generateField(fieldType, this.namespace, typeDir, fieldDir, codeSets, this.decimalTypeString);
 //			}
 
-			if (isNormaliseGroup) {
+			if (isNormaliseGroups) {
 				final File groupDir = SchemaGeneratorUtil.getAvroPath(outputDir, namespace, GROUP_DIR);
 				groupDir.mkdirs();
 				for (final GroupType group : groups.values()) {
@@ -202,14 +212,14 @@ public class SchemaGenerator {
 			}
 			// at time of writing Session Messages do not contain components (only groups),
 			// so there is no logic to segregate session components
-			if (isNormaliseComponent) {
+			if (isNormaliseComponents) {
 				final File componentDir = SchemaGeneratorUtil.getAvroPath(outputDir, namespace, COMPONENT_DIR);
 				componentDir.mkdirs();
 				for (final ComponentType component : componentList) {
-					generateComponent(componentDir, component, this.namespace, this.decimalTypeString, groups, components, fields, codeSets);
+					generateComponent(componentDir, component, this.namespace, this.decimalTypeString, groups, components, fields, codeSets, this.isNormaliseComponents, this.isNormaliseGroups);
 				}
 			}
-			generateMessages(messageDir, messages, namespace, this.decimalTypeString, groups, components, fields, codeSets);
+			generateMessages(messageDir, messages, namespace, this.decimalTypeString, groups, components, fields, codeSets, this.isNormaliseComponents, this.isNormaliseGroups);
 		} catch (JAXBException | IOException e) {
 			e.printStackTrace();
 		}
@@ -222,15 +232,18 @@ public class SchemaGenerator {
 			                             final String decimalTypeString, 
 			                             Map<Integer, GroupType> groups, 
 			                             Map<Integer, ComponentType> components, 
-			                             Map<Integer, FieldType> fields, Map<String, CodeSetType> codeSets) throws IOException {
+			                             Map<Integer, FieldType> fields, Map<String, 
+			                             CodeSetType> codeSets,
+										 boolean isNormaliseComponents, 
+										 boolean isNormaliseGroups) throws IOException {
 		for (final MessageType message : messages) {
-			generateMessage(outputDir, message, namespace, decimalTypeString, groups,  components, fields, codeSets);
+			generateMessage(outputDir, message, namespace, decimalTypeString, groups,  components, fields, codeSets, isNormaliseComponents, isNormaliseGroups);
 		}
 	}
 	
 	private static void generateMessage(File messageDir, MessageType message, String namespace,
 			String decimalTypeString, Map<Integer, GroupType> groups, Map<Integer, ComponentType> components,
-			Map<Integer, FieldType> fields, Map<String, CodeSetType> codeSets) throws IOException {
+			Map<Integer, FieldType> fields, Map<String, CodeSetType> codeSets, boolean isNormaliseComponents, boolean isNormaliseGroups) throws IOException {
 		final String name = SchemaGeneratorUtil.toTitleCase(message.getName());
 		
 		final File messageFile = getFilePath(messageDir, name);
@@ -254,7 +267,7 @@ public class SchemaGenerator {
 
 			final List<Object> members = message.getStructure().getComponentRefOrGroupRefOrFieldRef();
 			List<String> memberStrings = new ArrayList<>();
-			getMembersInline(members, namespace, decimalTypeString, groups, components, fields, codeSets, 1, memberStrings);
+			getMembersInline(members, namespace, decimalTypeString, groups, components, fields, codeSets, 1, memberStrings, isNormaliseComponents, isNormaliseGroups);
 			writer.write(String.join(",\n", memberStrings));
 			writer.write("\n");
 			writer.write(SchemaGeneratorUtil.indent(1));
@@ -270,7 +283,9 @@ public class SchemaGenerator {
 			              				  Map<Integer, GroupType> groups, 
 			              				  Map<Integer, ComponentType> components, 
 			              				  Map<Integer, FieldType> fields,
-										  Map<String, CodeSetType> codeSets) throws IOException {
+										  Map<String, CodeSetType> codeSets,
+										  boolean isNormaliseComponents,
+										  boolean isNormaliseGroups) throws IOException {
 		final String name = SchemaGeneratorUtil.toTitleCase(componentType.getName());
 		
 		final File componentFile = getFilePath(componentDir, name);
@@ -293,7 +308,7 @@ public class SchemaGenerator {
 
 			final List<Object> members = componentType.getComponentRefOrGroupRefOrFieldRef();
 			List<String> memberStrings = new ArrayList<>();
-			getMembersInline(members, namespace, decimalTypeString, groups, components, fields, codeSets, 1, memberStrings);
+			getMembersInline(members, namespace, decimalTypeString, groups, components, fields, codeSets, 1, memberStrings, isNormaliseComponents, isNormaliseGroups);
 			writer.write(String.join(",\n", memberStrings));
 			writer.write("\n");
 			writer.write(SchemaGeneratorUtil.indent(1));
@@ -310,7 +325,9 @@ public class SchemaGenerator {
 									  Map<Integer, FieldType> fields,
 									  Map<String, CodeSetType> codeSets,
 									  int indent,
-									  List<String> memberStrings) throws IOException {
+									  List<String> memberStrings,
+									  boolean isNormaliseComponents, 
+									  boolean isNormaliseGroups) throws IOException {
 		for (final Object member : members) {
 			if (member instanceof FieldRefType) {
 				final FieldRefType fieldRefType = (FieldRefType) member;
@@ -338,7 +355,7 @@ public class SchemaGenerator {
 				if (groupType != null) {
 					int groupIndent = indent + 1;
 					final String groupTypeName = SchemaGeneratorUtil.toTitleCase(groupType.getName());
-					if (isNormaliseGroup) {
+					if (isNormaliseGroups) {
 						final String generatedType = namespace.concat(".").concat(GROUP_DIR).concat(".").concat(groupTypeName);
 						memberStrings.add(getGroupInlineString(groupRefType, groupType, groupTypeName, generatedType));
 					} else {
@@ -382,7 +399,9 @@ public class SchemaGenerator {
 								fields, 
 								codeSets, 
 								groupIndent,
-								groupMemberStrings);
+								groupMemberStrings, 
+								isNormaliseComponents, 
+								isNormaliseGroups);
 						groupString.append(String.join(",\n", groupMemberStrings));
 						groupString.append("\n");
 						groupString.append(indent(groupIndent));
@@ -409,7 +428,7 @@ public class SchemaGenerator {
 				final int id = componentRefType.getId().intValue();
 				final ComponentType componentType = components.get(id);
 				if (componentType != null) {
-					if (isNormaliseComponent) {
+					if (isNormaliseComponents) {
 						final String componentTypeName = SchemaGeneratorUtil.toTitleCase(componentType.getName());
 						final String generatedType = namespace.concat(".").concat(COMPONENT_DIR).concat(".").concat(componentTypeName);
 						memberStrings.add(getComponentInlineString(componentRefType, componentType, componentTypeName, generatedType));
@@ -424,7 +443,9 @@ public class SchemaGenerator {
 								fields, 
 								codeSets, 
 								indent,
-								memberStrings);
+								memberStrings, 
+								isNormaliseComponents, 
+								isNormaliseGroups);
 					}
 				} else {
 					System.err.format("writeMembersInline : Component missing from repository; id=%d%n", id);
@@ -438,7 +459,14 @@ public class SchemaGenerator {
 		result.append(indent(2));
 		result.append("{");
 		result.append(SchemaGeneratorUtil.getJsonNameValue("name", name, true));
-		result.append(SchemaGeneratorUtil.getJsonNameValue("type", type, true));
+		if (componentRefType.getPresence().equals(PresenceT.REQUIRED)) {
+			result.append(SchemaGeneratorUtil.getJsonNameValue("type", type, true));
+		} else {
+			result.append("\"type\": [ \"null\", ");
+			result.append("\"").append(type).append("\"");
+			result.append("], ");
+			result.append("\"default\": null, ");
+		}
 
 		List<Object> members = componentRefType.getAnnotation().getDocumentationOrAppinfo();
 		List<String> docs = new ArrayList<>();
@@ -457,8 +485,14 @@ public class SchemaGenerator {
 		result.append(indent(2));
 		result.append("{");
 		result.append(SchemaGeneratorUtil.getJsonNameValue("name", name, true));
-		result.append(SchemaGeneratorUtil.getJsonNameValue("type", type, true));
-
+		if (groupRefType.getPresence().equals(PresenceT.REQUIRED)) {
+			result.append(SchemaGeneratorUtil.getJsonNameValue("type", type, true));
+		} else {
+			result.append("\"type\": [ \"null\", ");
+			result.append("\"").append(type).append("\"");
+			result.append("], ");
+			result.append("\"default\": null, ");
+		}
 		List<Object> members = groupRefType.getAnnotation().getDocumentationOrAppinfo();
 		List<String> docs = new ArrayList<>();
 		SchemaGeneratorUtil.getDocumentationStrings(members, docs);
@@ -563,7 +597,7 @@ public class SchemaGenerator {
 			writer.write("\"fields\": [\n");
 			final List<Object> members = group.getComponentRefOrGroupRefOrFieldRef();
 			List<String> memberStrings = new ArrayList<>();
-			getMembersInline(members, namespace, decimalTypeString, groups, components, fields, codeSets, 5, memberStrings);
+			getMembersInline(members, namespace, this.decimalTypeString, groups, components, fields, codeSets, 5, memberStrings, this.isNormaliseComponents, this.isNormaliseGroups);
 			writer.write(String.join(",\n", memberStrings));
 			writer.write("\n");
 			writer.write(indent(5));
@@ -653,5 +687,21 @@ public class SchemaGenerator {
 
 	public void setAppendRepoFixVersionToNamespace(boolean isAppendRepoFixVersionToNamespace) {
 		this.isAppendRepoFixVersionToNamespace = isAppendRepoFixVersionToNamespace;
+	}
+
+	public boolean isNormaliseComponents() {
+		return isNormaliseComponents;
+	}
+
+	public void setNormaliseComponents(boolean isNormaliseComponents) {
+		this.isNormaliseComponents = isNormaliseComponents;
+	}
+
+	public boolean isNormaliseGroups() {
+		return isNormaliseGroups;
+	}
+
+	public void setNormaliseGroups(boolean isNormaliseGroups) {
+		this.isNormaliseGroups = isNormaliseGroups;
 	}
 }
