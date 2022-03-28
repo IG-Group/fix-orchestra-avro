@@ -1,19 +1,18 @@
 package io.fixprotocol.orchestra.avro;
 
-import java.io.File;
-import java.io.IOException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import io.fixprotocol.orchestra.avro.SchemaGenerator;
-import io.fixprotocol.orchestra.avro.SchemaGeneratorUtil;
-import picocli.CommandLine;
-import picocli.CommandLine.MissingParameterException;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.File;
+import java.io.IOException;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import picocli.CommandLine;
+import picocli.CommandLine.MissingParameterException;
 
 public class SchemaGeneratorTest {
 

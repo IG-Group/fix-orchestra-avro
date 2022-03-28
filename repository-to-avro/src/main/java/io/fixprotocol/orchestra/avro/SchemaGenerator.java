@@ -20,10 +20,9 @@ import static io.fixprotocol.orchestra.avro.SchemaGeneratorUtil.indent;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.OutputStreamWriter;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -497,7 +496,7 @@ public class SchemaGenerator {
 			SchemaGeneratorUtil.writeEnumDef(writer);
 //			final String avroType = getFieldAvroType(fixType, decimalTypeString);
 			List<CodeType> codes = codeSet.getCode();
-			String unknown = "UNKNOWN_".concat(SchemaGeneratorUtil.precedeCapsWithUnderscore(codeSet.getName()));
+			String unknown = "UNKNOWN_".concat(SchemaGeneratorUtil.precedeCapsWithUnderscore(codeSet.getName().replaceAll("CodeSet$", "")));
 			for (CodeType code : codes) {
 				writer.write(indent(3));
 				writer.write("\"");

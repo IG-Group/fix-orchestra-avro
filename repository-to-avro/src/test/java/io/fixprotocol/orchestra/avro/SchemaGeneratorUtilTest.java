@@ -1,16 +1,5 @@
 package io.fixprotocol.orchestra.avro;
 
-import static org.junit.jupiter.api.Assertions.*;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-import org.junit.jupiter.api.Test;
-
-import io.fixprotocol._2020.orchestra.repository.FieldType;
-import io.fixprotocol.orchestra.avro.SchemaGeneratorUtil;
-
 class SchemaGeneratorUtilTest {
 
 	private String lineSeparator = System.lineSeparator();
