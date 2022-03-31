@@ -337,7 +337,7 @@ public class SchemaGenerator {
 					int fieldIndent = indent + 1;
 					final String fieldTypeType = SchemaGeneratorUtil.toTitleCase(fieldType.getType());
 					final CodeSetType codeSet = codeSets.get(fieldTypeType);
-					String fieldName = fieldType.getName();
+					String fieldName = SchemaGeneratorUtil.firstCharToLowerCase(fieldType.getName());
 					if (null == codeSet) {
 						final String avroType = getFieldAvroType(fieldTypeType, decimalTypeString);
 						memberStrings.add(SchemaGeneratorUtil.getFieldInlineString(fieldRefType, fieldType, fieldName, avroType, fieldIndent));
@@ -354,15 +354,16 @@ public class SchemaGenerator {
 				final GroupType groupType = groups.get(id);
 				if (groupType != null) {
 					int groupIndent = indent + 1;
-					final String groupTypeName = SchemaGeneratorUtil.toTitleCase(groupType.getName());
+					String groupTypeName = groupType.getName();
 					if (isNormaliseGroups) {
+						final String memberName = SchemaGeneratorUtil.firstCharToLowerCase(groupTypeName);
 						final String generatedType = namespace.concat(".").concat(GROUP_DIR).concat(".").concat(groupTypeName);
-						memberStrings.add(getGroupInlineString(groupRefType, groupType, groupTypeName, generatedType));
+						memberStrings.add(getGroupInlineString(groupRefType, groupType, memberName, generatedType));
 					} else {
 						StringBuffer groupString = new StringBuffer();
 						groupString.append(indent(groupIndent));
 						groupString.append("{\n");
-						groupString.append(indent(++groupIndent)).append(getJsonNameValue("name", groupTypeName, true));
+						groupString.append(indent(++groupIndent)).append(getJsonNameValue("name", SchemaGeneratorUtil.firstCharToLowerCase(groupTypeName), true));
 						groupString.append("\n");
 						groupString.append(indent(groupIndent));
 						if (!groupRefType.getPresence().equals(PresenceT.REQUIRED)) {
@@ -429,9 +430,10 @@ public class SchemaGenerator {
 				final ComponentType componentType = components.get(id);
 				if (componentType != null) {
 					if (isNormaliseComponents) {
-						final String componentTypeName = SchemaGeneratorUtil.toTitleCase(componentType.getName());
+						String componentTypeName = componentType.getName();
+						final String memberName = SchemaGeneratorUtil.firstCharToLowerCase(componentTypeName);
 						final String generatedType = namespace.concat(".").concat(COMPONENT_DIR).concat(".").concat(componentTypeName);
-						memberStrings.add(getComponentInlineString(componentRefType, componentType, componentTypeName, generatedType));
+						memberStrings.add(getComponentInlineString(componentRefType, componentType, memberName, generatedType));
 					} else {
 						final List<Object> componentMembers = componentType.getComponentRefOrGroupRefOrFieldRef();
 						getMembersInline(

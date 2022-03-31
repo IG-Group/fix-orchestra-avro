@@ -185,4 +185,14 @@ public class SchemaGeneratorUtil {
 				.collect(Collectors.joining());
 	}
 
+	static String firstCharToLowerCase(final String stringToConvert) {
+		if (null != stringToConvert && !stringToConvert.isEmpty()) {
+			char[] fieldNameChars = stringToConvert.toCharArray();
+			fieldNameChars[0] = Character.toLowerCase(fieldNameChars[0]);
+			return new String(fieldNameChars);
+		} else {
+			return stringToConvert;
+		}
+	}
+
 }

@@ -1,5 +1,9 @@
 package io.fixprotocol.orchestra.avro;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
+
 class SchemaGeneratorUtilTest {
 
 	private String lineSeparator = System.lineSeparator();
@@ -23,5 +27,14 @@ class SchemaGeneratorUtilTest {
 		    setField(defaultApplVerID);
 		}
 	 */
+	
+	@Test
+	public void testFirstCharToLowerCase() {
+		assertEquals("anExampleString", SchemaGeneratorUtil.firstCharToLowerCase("AnExampleString"));
+		assertEquals("anExampleString", SchemaGeneratorUtil.firstCharToLowerCase("anExampleString"));
+		assertEquals("", SchemaGeneratorUtil.firstCharToLowerCase(""));
+		assertEquals(" ", SchemaGeneratorUtil.firstCharToLowerCase(" "));
+		assertEquals(null, SchemaGeneratorUtil.firstCharToLowerCase(null));
+	}
 
 }
