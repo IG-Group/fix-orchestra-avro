@@ -16,6 +16,7 @@
 		<name>FIX Trading Community</name>
 		<url>http://https://www.fixtrading.org/</url>
 	</organization>
+	
 	<licenses>
 		<license>
 			<name>The Apache License, Version 2.0</name>
@@ -23,13 +24,19 @@
 		</license>
 	</licenses>
 
+	<developers>
+		<developer>
+			<name>David Gibbs</name>
+			<email>david.gibbs@ig.com</email>
+		</developer>
+	</developers>
+
 	<scm>
 		<developerConnection>scm:git:https://github.com/IG-Group/fix-orchestra-avro</developerConnection>
 		<connection>scm:git:ssh//git@github.com/IG-Group/fix-orchestra-avro.git</connection>
 		<url>https://github.com/IG-Group/fix-orchestra-avro</url>
-	  <tag>HEAD</tag>
-  </scm>
-
+	</scm>
+	
 	<modules>
 		<module>repository-to-avro</module>
 		<module>repository-to-avro-maven-plugin</module>
