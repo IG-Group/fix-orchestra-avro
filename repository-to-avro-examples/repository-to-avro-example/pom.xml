@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>com.ig.orchestra.avro</groupId>
 		<artifactId>repository-to-avro-examples</artifactId>
-		<version>1.0.5-SNAPSHOT</version>
+		<version>1.0.5</version>
 	</parent>
 
 	<artifactId>repository-to-avro-example</artifactId>
