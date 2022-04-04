@@ -26,8 +26,9 @@
 	</licenses>
 
 	<scm>
-		<developerConnection>scm:git:ssh://git@github.com/FIXTradingCommunity/fix-orchestra-avro.git</developerConnection>
-		<url>https://github.com/FIXTradingCommunity/fix-orchestra-avro</url>
+		<developerConnection>scm:git:https://github.com/IG-Group/fix-orchestra-avro</developerConnection>
+		<connection>scm:git:ssh//git@github.com/IG-Group/fix-orchestra-avro.git</connection>
+		<url>https://github.com/IG-Group/fix-orchestra-avro</url>
 	</scm>
 
 	<modules>
