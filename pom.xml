@@ -31,6 +31,17 @@
 		<url>https://github.com/IG-Group/fix-orchestra-avro</url>
 	</scm>
 
+	<distributionManagement>
+		<snapshotRepository>
+			<id>ossrh</id>
+			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
+		</snapshotRepository>
+		<repository>
+			<id>ossrh</id>
+			<url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+		</repository>
+	</distributionManagement>
+
 	<modules>
 		<module>repository-to-avro</module>
 		<module>repository-to-avro-maven-plugin</module>
