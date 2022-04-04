@@ -3,7 +3,7 @@
 
 	<groupId>com.ig.orchestra.avro</groupId>
 	<artifactId>repository-avro-parent</artifactId>
-	<version>1.0.3-SNAPSHOT</version>
+	<version>1.0.4-SNAPSHOT</version>
 	<packaging>pom</packaging>
 
 
@@ -36,7 +36,7 @@
 		<connection>scm:git:ssh//git@github.com/IG-Group/fix-orchestra-avro.git</connection>
 		<url>https://github.com/IG-Group/fix-orchestra-avro</url>
 	</scm>
-
+	
 	<modules>
 		<module>repository-to-avro</module>
 		<module>repository-to-avro-maven-plugin</module>
