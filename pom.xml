@@ -35,7 +35,7 @@
 		<developerConnection>scm:git:https://github.com/IG-Group/fix-orchestra-avro</developerConnection>
 		<connection>scm:git:ssh//git@github.com/IG-Group/fix-orchestra-avro.git</connection>
 		<url>https://github.com/IG-Group/fix-orchestra-avro</url>
-	  <tag>HEAD</tag>
+   	    <tag>HEAD</tag>
   </scm>
 	
 	<modules>
