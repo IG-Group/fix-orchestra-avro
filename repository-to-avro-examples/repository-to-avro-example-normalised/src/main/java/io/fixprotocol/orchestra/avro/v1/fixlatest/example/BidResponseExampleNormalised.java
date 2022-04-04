@@ -72,7 +72,7 @@ public class BidResponseExampleNormalised {
 	
 	/**
 	 * Write the received <code>BidResponses</code> to the specified file
-	 * @param bidResponse
+	 * @param bidResponses
 	 * @param file
 	 * @throws IOException
 	 */

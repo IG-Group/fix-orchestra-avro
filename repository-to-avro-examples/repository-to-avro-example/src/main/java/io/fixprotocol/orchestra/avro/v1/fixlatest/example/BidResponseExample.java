@@ -60,10 +60,10 @@ public class BidResponseExample {
 	public static BidCompRspGrpItem createBidCompRspGrpItem(String commission, String currency) {
 		return BidCompRspGrpItem.newBuilder().setCommission(commission).setCommCurrency(currency).build();
 	}
-	
+
 	/**
-	 * Write the received <code>BidResponses</code> to the specified file
-	 * @param bidResponse
+	 * Write the received <code>BidResponses</code> to the specified files
+	 * @param bidResponses
 	 * @param file
 	 * @throws IOException
 	 */

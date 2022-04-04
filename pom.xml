@@ -16,12 +16,20 @@
 		<name>FIX Trading Community</name>
 		<url>http://https://www.fixtrading.org/</url>
 	</organization>
+	
 	<licenses>
 		<license>
 			<name>The Apache License, Version 2.0</name>
 			<url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
 		</license>
 	</licenses>
+
+	<developers>
+		<developer>
+			<name>David Gibbs</name>
+			<email>david.gibbs@ig.com</email>
+		</developer>
+	</developers>
 
 	<scm>
 		<developerConnection>scm:git:https://github.com/IG-Group/fix-orchestra-avro</developerConnection>
