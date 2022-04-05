@@ -44,7 +44,7 @@
 		  <groupId>info.picocli</groupId>
 		  <artifactId>picocli</artifactId>
 		  <version>${picocli-version}</version>
-		</dependency>		
+		</dependency>
 		<dependency>
 			<groupId>com.sun.xml.bind</groupId>
 			<artifactId>jaxb-impl</artifactId>
@@ -92,7 +92,14 @@
 					<destination>${project.build.directory}/tattle-tale-report</destination>
 				</configuration>
 			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-source-plugin</artifactId>
+			</plugin>
 		</plugins>
 	</build>
-
 </project>
